@@ -1,6 +1,7 @@
 import base64
 from io import BytesIO
 import os
+from pkgutil import get_data
 import queue
 import random
 import tempfile
@@ -18,6 +19,7 @@ import threading
 import queue
 from dateutil import tz
 import glob
+import copy
 
 from PIL import Image, ImageTk
 import cv2
@@ -58,6 +60,16 @@ WAV_PLAYING = False
 mastodon = None
 listener = None
 useVV = None
+prev_toot_id = -1
+
+class GL_data():
+  toot_id = -1
+  name = ''
+  toot_text = ''
+  img_avatar = None
+  img_boosted_avatar = None
+
+g_data = GL_data()
 
 
 def imread_web(url):
@@ -295,30 +307,32 @@ class MyListener(StreamListenerEx):
         q1.put(notification['status'])
 
 def worker():
-  global q2, WAV_PLAYING, vv_data, JST, lock
+  global q2, lock 
+
   while True:
+    if not q1.empty(): # 次のTootがある場合
+      toot = q1.get()
+      if toot.get('toot_account_full_id') != None:
+        # 時報
+        update_toot(toot, toot)
+        q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
+      else:
+        # 通常Toot
+        result = do_1toot(toot)
+        update_toot(toot, result)
 
     if not q2.empty():
-      lock.acquire()
-      print("2: WAV_PLAYING = True")
-      WAV_PLAYING = True
-      lock.release()
-
       (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
       if nSpeaker != '':
         if useVV.checkVV() == True:
           useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
           sleep(0.3)
 
-      lock.acquire()
-      print("3: WAV_PLAYING = False")
-      WAV_PLAYING = False
-      lock.release()
 
     sleep(0.1) # もう少し短くしてもいいだろうが、まぁいいや
 
-def update_toot(window, toot, result):
-  global q1, replace_id2name, ICON_W_H, FLAG_USE_CLOCK
+def update_toot(toot, result):
+  global ICON_W_H, g_data
 
   s = ""
   toot_account0 = result['toot_account0']
@@ -330,9 +344,8 @@ def update_toot(window, toot, result):
       s = toot_account0 + '(' + toot_account_full_id + ')'
   else:
       s = toot_account_full_id
-  window['-NAME-'].update(s)
-
-  window['-TOOT-'].update(toot_text0)
+  name = s
+  toot_text = toot_text0
 
   url = toot['account']['avatar_static']
   if url[0:7] == '[LOCAL]':
@@ -341,18 +354,26 @@ def update_toot(window, toot, result):
     img = imread_web(url)
   img = cv2.resize(img, dsize=(ICON_W_H, ICON_W_H), interpolation=cv2.INTER_AREA)
   img = cv_to_base64(img)
-  window['-AVATAR-'].update(data=img)
+  img_avatar = img
     
   if boosted_avatar != '':
     url = boosted_avatar
     img = imread_web(url)
     img = cv2.resize(img, dsize=(24, 24), interpolation=cv2.INTER_AREA)
     img = cv_to_base64(img)
-    window['-BOOSTED_AVATAR-'].update(data=img)
+    img_boosted_avatar = img
   else:
-    window['-BOOSTED_AVATAR-'].update(data=None)
+    img_boosted_avatar = None
+  
+  lock.acquire()
+  g_data.toot_id = toot['id']
+  g_data.name = name
+  g_data.toot_text = toot_text
+  g_data.img_avatar = img_avatar
+  g_data.img_boosted_avatar = img_boosted_avatar
+  lock.release()
 
-def toot_sub(nSpeaker, now, toot):
+def put_toot(nSpeaker, now, toot):
   global png_files, q1
   t ={ "speaker":-1, "id":'', "toot_account0":'', "toot_account_full_id":'', "toot_text0":'', "account": { "avatar_static":'' }, "boosted_avatar":'' }
   t['speaker'] = nSpeaker
@@ -366,7 +387,7 @@ def toot_sub(nSpeaker, now, toot):
 
 def main():
   global ICON_W_H, ICON_W_H_2, WAV_PLAYING, png_files, JST, FLAG_USE_LTL
-  global mastodon, listener, useVV, lock
+  global mastodon, listener, useVV, lock, g_data, prev_toot_id
 
   mastodon = init()
   listener = MyListener()
@@ -427,8 +448,6 @@ def main():
     auto_size_buttons=False, keep_on_top=True, grab_anywhere=True,  
     resizable=True, element_padding=(0, 0))
 
-      
-  tooted_dict = {}
   limit_time = datetime.datetime.now(JST)
   unlock_counter = 0
 
@@ -454,7 +473,7 @@ def main():
             nSpeaker = random.randint(0, useVV.getMaxSpeakerID())
             s = 'に...'
 
-            toot_sub(nSpeaker, now, s)
+            put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
     
         if (h == 22) and (m == 21) and (s == 50):
@@ -462,7 +481,7 @@ def main():
             nSpeaker = random.randint(0, useVV.getMaxSpeakerID())
             s = 'にゃ...'
 
-            toot_sub(nSpeaker, now, s)
+            put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
     
         if (h == 22) and (m == 22) and (s == 00):
@@ -470,7 +489,7 @@ def main():
             nSpeaker = random.randint(0, useVV.getMaxSpeakerID())
             s = 'にゃんにゃんにゃんにゃんにゃんにゃんにゃんにゃん'
 
-            toot_sub(nSpeaker, now, s)
+            put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
         if (m % 5 == 0) and (s == 0):
@@ -481,48 +500,26 @@ def main():
             s += '午前' + str(h) if h <= 12 else '午後' + str(h - 12)
             s += '時' + str(m) + '分くらいを\nお知らせします。'
             
-            toot_sub(nSpeaker, now, s)
+            put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
     
     dt = now.strftime('%Y/%m/%d(%a) %H:%M:%S')
     window['-TIME-'].update(dt)
-    
-    lock.acquire()
-    if WAV_PLAYING == False: # 再生が終わっていて
-      unlock_counter = 0
-      if not q1.empty(): # 次のTootがある場合
-        WAV_PLAYING = True
-        print("1: WAV_PLAYING = True")
-        lock.release()
-        toot = q1.get()
-        if tooted_dict.get(toot['id']) == None:
-          if toot.get('toot_account_full_id') != None:
-            # 時報
-            update_toot(window, toot, toot)
-            q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
-          else:
-            # 通常Toot
-            result = do_1toot(toot)
-            update_toot(window, toot, result)
 
-          tooted_dict[toot['id']] = 1
-          if len(tooted_dict) > 10000:
-            tooted_dict = {}
-            tooted_dict[toot['id']] = 1
-        else:
-          print("4: WAV_PLAYING = T--->F")
-          q2.put(('', '', '', '', ''))
-      else:
-        lock.release()
-    else:
-      unlock_counter += 1
-      if unlock_counter > 60 * 120:
-        print("5: WAV_PLAYING = UNLOCK T--->F")
-        WAV_PLAYING = False
-        unlock_counter = 0
-      lock.release()
-            
+    g_data_local = None    
+    lock.acquire()
+    toot_id = g_data.toot_id
+    if toot_id != prev_toot_id:
+      g_data_local = copy.deepcopy(g_data)
+    lock.release()
+    
+    if toot_id != prev_toot_id:
+      prev_toot_id = toot_id
+      window['-NAME-'].update(g_data_local.name)
+      window['-TOOT-'].update(g_data_local.toot_text)
+      window['-AVATAR-'].update(data=g_data_local.img_avatar)
+      window['-BOOSTED_AVATAR-'].update(data=g_data_local.img_boosted_avatar)
       
   window.close()
 
