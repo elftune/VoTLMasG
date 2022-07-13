@@ -1,0 +1,10 @@
+mastodon.py
+datetime
+python-dateutil
+playsound
+PyObjC
+demoji
+pillow
+pysimplegui
+opencv-python
+requests

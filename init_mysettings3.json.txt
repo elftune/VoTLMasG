@@ -1,0 +1,11 @@
+{
+  "replace_id2name" : {
+    "users": [
+      { "id": "@xxxxx@xxxxx.xxx", "sp":-1, "name": "xxx" }
+    ]
+  },
+
+  "replace_content" : {
+    "hello":"はろー"
+  }
+}

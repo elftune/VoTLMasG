@@ -1,0 +1,8 @@
+{
+    "server_nickname":{
+        "url" : "https://",
+        "user_id" : "",
+        "password" : "",
+        "png_folder": ""
+   }
+}
