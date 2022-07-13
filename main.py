@@ -430,6 +430,7 @@ def main():
       
   tooted_dict = {}
   limit_time = datetime.datetime.now(JST)
+  unlock_counter = 0
 
   while True:
     event, _ = window.read(timeout=16) # msec
@@ -489,6 +490,7 @@ def main():
     
     lock.acquire()
     if WAV_PLAYING == False: # 再生が終わっていて
+      unlock_counter = 0
       if not q1.empty(): # 次のTootがある場合
         WAV_PLAYING = True
         print("1: WAV_PLAYING = True")
@@ -503,6 +505,7 @@ def main():
             # 通常Toot
             result = do_1toot(toot)
             update_toot(window, toot, result)
+
           tooted_dict[toot['id']] = 1
           if len(tooted_dict) > 10000:
             tooted_dict = {}
@@ -513,6 +516,11 @@ def main():
       else:
         lock.release()
     else:
+      unlock_counter += 1
+      if unlock_counter > 60 * 120:
+        print("5: WAV_PLAYING = UNLOCK T--->F")
+        WAV_PLAYING = False
+        unlock_counter = 0
       lock.release()
             
       
