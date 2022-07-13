@@ -300,15 +300,18 @@ def worker():
 
     if not q2.empty():
       lock.acquire()
+      print("2: WAV_PLAYING = True")
       WAV_PLAYING = True
       lock.release()
 
       (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-      if useVV.checkVV() == True:
-        useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-        sleep(0.3)
+      if nSpeaker != '':
+        if useVV.checkVV() == True:
+          useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+          sleep(0.3)
 
       lock.acquire()
+      print("3: WAV_PLAYING = False")
       WAV_PLAYING = False
       lock.release()
 
@@ -488,6 +491,7 @@ def main():
     if WAV_PLAYING == False: # 再生が終わっていて
       if not q1.empty(): # 次のTootがある場合
         WAV_PLAYING = True
+        print("1: WAV_PLAYING = True")
         lock.release()
         toot = q1.get()
         if tooted_dict.get(toot['id']) == None:
@@ -503,6 +507,9 @@ def main():
           if len(tooted_dict) > 10000:
             tooted_dict = {}
             tooted_dict[toot['id']] = 1
+        else:
+          print("4: WAV_PLAYING = T--->F")
+          q2.put(('', '', '', '', ''))
       else:
         lock.release()
     else:
