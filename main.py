@@ -51,6 +51,7 @@ q2 = queue.Queue() # Toot再生用
 replace_id2name = [] # IDを名前に変換
 replace_content = [] # ちゃんと読ませたい単語用
 lock = threading.Lock()
+tooted_id = {}
 
 png_folder = ''
 png_files = []
@@ -307,27 +308,32 @@ class MyListener(StreamListenerEx):
         q1.put(notification['status'])
 
 def worker():
-  global q2, lock 
+  global q2, lock, tooted_id
 
   while True:
     if not q1.empty(): # 次のTootがある場合
       toot = q1.get()
-      if toot.get('toot_account_full_id') != None:
-        # 時報
-        update_toot(toot, toot)
-        q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
-      else:
-        # 通常Toot
-        result = do_1toot(toot)
-        update_toot(toot, result)
+      
+      # LTLとHTLの両方に登録してある場合、重複になってしまうのでフラグ管理
+      if tooted_id.get(toot['id']) == None:
+        if len(tooted_id) > 10000:
+          tooted_id = {}
+        tooted_id[toot['id']] = 1
+        if toot.get('toot_account_full_id') != None:
+          # 時報
+          update_toot(toot, toot)
+          q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
+        else:
+          # 通常Toot
+          result = do_1toot(toot)
+          update_toot(toot, result)
 
-    if not q2.empty():
-      (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-      if nSpeaker != '':
-        if useVV.checkVV() == True:
-          useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-          sleep(0.3)
-
+      if not q2.empty():
+        (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+        if nSpeaker != '':
+          if useVV.checkVV() == True:
+            useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+            sleep(0.3)
 
     sleep(0.1) # もう少し短くしてもいいだろうが、まぁいいや
 
