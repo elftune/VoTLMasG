@@ -1,29 +1,15 @@
-import base64
-from io import BytesIO
 import os
-from pkgutil import get_data
 import queue
 import random
-import tempfile
-from urllib.parse import uses_relative
-from pytz import timezone
-import requests
-import pathlib
-import time
 import datetime
 from lib2to3.pytree import convert
-import re, os, json, requests
+import re, os, json
 from time import sleep
 import datetime
 import threading
 import queue
 from dateutil import tz
-import glob
-import copy
 
-from PIL import Image, ImageTk
-import cv2
-import PySimpleGUI as sg
 import demoji
 
 from mastodonEx import MastodonEx, StreamListenerEx
@@ -35,7 +21,7 @@ FLAG_USE_LTL = True # ローカル。fedibirdのようにLTLがない場合はFa
 FLAG_USE_FTL = False # 連合 (大量に流れるので片っ端からdomain_blockしてからでないと実用的ではないと思う)
 FLAG_USE_CLOCK = True
 
-appname = 'VoTLMasG'
+appname = 'VoTLMas'
 # init_mysettings.json の中でログインするIDごとにつけてください(英数字)
 # サーバー ＋ ニックネーム がわかりやすくてよいでしょう
 account_info = 'server_nickname'
@@ -53,10 +39,6 @@ replace_content = [] # ちゃんと読ませたい単語用
 lock = threading.Lock()
 tooted_id = {}
 
-png_folder = ''
-png_files = []
-ICON_W_H= 100 # アイコンサイズ
-ICON_W_H_2= 32 # BTアイコンのサイズ
 mastodon = None
 listener = None
 useVV = None
@@ -66,47 +48,14 @@ class GL_data():
   toot_id = -1
   name = ''
   toot_text = ''
-  img_avatar = None
-  img_boosted_avatar = None
 
 g_data = GL_data()
-
-
-def imread_web(url):
-    res = requests.get(url)
-    img = None
-    
-    # 本来はこう書くのだが、Windowsではcloseしないと読めないらしいwww
-    if os.name != 'nt':
-      with tempfile.NamedTemporaryFile() as fp:
-          fp.write(res.content)
-          fp.file.seek(0)
-          img = cv2.imread(fp.name)
-    else:
-      fp = tempfile.NamedTemporaryFile(delete=False)
-      fp.write(res.content)
-      fp.file.seek(0)
-      fp.close()
-      img = cv2.imread(fp.name)
-      os.remove(fp.name)
-    return img
-  
-def pil_to_base64(img, format="png"):
-    buffer = BytesIO()
-    img.save(buffer, format)
-    img_str = base64.b64encode(buffer.getvalue()).decode("ascii")
-    return img_str
-
-def cv_to_base64(img):
-    _, encoded = cv2.imencode(".png", img)
-    img_str = base64.b64encode(encoded).decode("ascii")
-    return img_str
 
 def remove_emoji(src_str):
     return demoji.replace(string=src_str, repl="")
 
 def init():
-  global convURL, conv, convp, url, png_folder, png_files
+  global convURL, conv, convp, url
   global replace_id2name, replace_content, account_info
 
   print("初期化開始")
@@ -126,13 +75,6 @@ def init():
       exit()
     email = json_load[account_info]['user_id']
     password = json_load[account_info]['password']
-    png_folder= json_load[account_info]['png_folder']
-    if png_folder[-1] == '/' or png_folder[-1] == '\\':
-      png_folder = png_folder[0:len(png_folder)-1] 
-    png_files = glob.glob(png_folder + "/*.png")
-    if len(png_files) == 0:
-      print(f"{png_folder} にPNGファイルが存在しないため、時刻読み上げ機能は使用しません。")
-      FLAG_USE_CLOCK = False
           
   except:
     print(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
@@ -290,10 +232,6 @@ def do_1toot(toots):
   result['toot_account0'] = toot_account0
   result['toot_account_full_id'] = toot_account_full_id
   result['toot_text0'] = toot_text0
-  if toots['reblog'] != None:
-    result['boosted_avatar'] = toots['reblog']['account']['avatar_static']
-  else:
-    result['boosted_avatar'] = ''
   return result
 
 class MyListener(StreamListenerEx):
@@ -306,92 +244,20 @@ class MyListener(StreamListenerEx):
     if notification['type'] == 'mention': #通知の内容がリプライかチェック
         q1.put(notification['status'])
 
-def worker():
-  global q2, lock, tooted_id
-
-  while True:
-    if not q1.empty(): # 次のTootがある場合
-      toot = q1.get()
-      
-      # LTLとHTLの両方に登録してある場合、重複になってしまうのでフラグ管理
-      if tooted_id.get(toot['id']) == None:
-        if len(tooted_id) > 10000:
-          tooted_id = {}
-        tooted_id[toot['id']] = 1
-        if toot.get('toot_account_full_id') != None:
-          # 時報
-          update_toot(toot, toot)
-          q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
-        else:
-          # 通常Toot
-          result = do_1toot(toot)
-          update_toot(toot, result)
-
-      if not q2.empty():
-        (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-        if nSpeaker != '':
-          if useVV.checkVV() == True:
-            useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-            sleep(0.3)
-
-    sleep(0.1) # もう少し短くしてもいいだろうが、まぁいいや
-
-def update_toot(toot, result):
-  global ICON_W_H, g_data
-
-  s = ""
-  toot_account0 = result['toot_account0']
-  toot_account_full_id = result['toot_account_full_id']
-  toot_text0 = result['toot_text0']
-  boosted_avatar = result['boosted_avatar']
-  
-  if toot_account0 != '':
-      s = toot_account0 + '(' + toot_account_full_id + ')'
-  else:
-      s = toot_account_full_id
-  name = s
-  toot_text = toot_text0
-
-  url = toot['account']['avatar_static']
-  if url[0:7] == '[LOCAL]':
-    img = cv2.imread(url[7:])
-  else:
-    img = imread_web(url)
-  img = cv2.resize(img, dsize=(ICON_W_H, ICON_W_H), interpolation=cv2.INTER_AREA)
-  img = cv_to_base64(img)
-  img_avatar = img
-    
-  if boosted_avatar != '':
-    url = boosted_avatar
-    img = imread_web(url)
-    img = cv2.resize(img, dsize=(24, 24), interpolation=cv2.INTER_AREA)
-    img = cv_to_base64(img)
-    img_boosted_avatar = img
-  else:
-    img_boosted_avatar = None
-  
-  lock.acquire()
-  g_data.toot_id = toot['id']
-  g_data.name = name
-  g_data.toot_text = toot_text
-  g_data.img_avatar = img_avatar
-  g_data.img_boosted_avatar = img_boosted_avatar
-  lock.release()
 
 def put_toot(nSpeaker, now, toot):
   global png_files, q1
-  t ={ "speaker":-1, "id":'', "toot_account0":'', "toot_account_full_id":'', "toot_text0":'', "account": { "avatar_static":'' }, "boosted_avatar":'' }
+  t ={ "speaker":-1, "id":'', "toot_account0":'', "toot_account_full_id":'', "toot_text0":'' }
   t['speaker'] = nSpeaker
   t['id']= 'TIME' + now.strftime('%Y%m%d%H%M%S')
   t['toot_account0'] = ''
   t['toot_account_full_id'] = 'Clock'
   t['toot_text0'] = toot
-  t['account']['avatar_static'] = '[LOCAL]' + png_files[random.randint(0, len(png_files)-1)]
   q1.put(t)
 
 
 def main():
-  global ICON_W_H, ICON_W_H_2, png_files, JST, FLAG_USE_LTL
+  global ICON_W_H, ICON_W_H_2, JST, FLAG_USE_LTL, q2, tooted_id
   global mastodon, listener, useVV, lock, g_data, prev_toot_id
 
   mastodon = init()
@@ -421,51 +287,10 @@ def main():
       th.setDaemon(True)
       th.start()
 
-  sg.theme('DarkBrown1')
-
-  th2 = threading.Thread(target = worker)
-  th2.setDaemon(True)
-  th2.start()
-
-  col1 = [
-    [ sg.Text('(name)', text_color='yellow', font=(None, 14), key='-NAME-') ]
-  ]
-  col2 = [
-    [
-        sg.Text('(Toot)', text_color='white', font=(None, 14), size=(26, 5), key='-TOOT-'),
-        sg.Image(data=None, size=(ICON_W_H_2, ICON_W_H_2), key='-BOOSTED_AVATAR-'),
-        sg.Image(data=None, size=(ICON_W_H, ICON_W_H), key='-AVATAR-')
-    ]
-  ]
-  col3 = [
-    [ sg.Text('(time)', text_color='white', font=(None, 14), key='-TIME-', enable_events=True) ]
-  ]
-
-  layout = [
-    [sg.Column(col1)],
-    [sg.Column(col2)],
-    [sg.Column(col3, justification='right')]
-  ]
-
-  # scaling=2.0にするとWindows 4Kででかすぎたw
-  window = sg.Window('VoTLMasG', layout, size=(360, 160),
-    auto_size_buttons=False, keep_on_top=True, grab_anywhere=True,  
-    resizable=True, element_padding=(0, 0))
 
   limit_time = datetime.datetime.now(JST)
 
   while True:
-    event, _ = window.read(timeout=16) # msec
-    if event == sg.WIN_CLOSED or event == 'Quit':
-        break
-    
-    if event == '-TIME-':
-      screen_width, screen_height = window.get_screen_dimensions()
-      win_width, win_height = window.size
-      x, y = (screen_width - win_width) - 2, (screen_height - win_height) - 2-28
-      window.move(x, y)
-
-
     now = datetime.datetime.now(JST)
     h = now.hour; m = now.minute; s = now.second
 
@@ -506,24 +331,29 @@ def main():
             put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
-    dt = now.strftime('%Y/%m/%d(%a) %H:%M:%S')
-    window['-TIME-'].update(dt)
-
-    g_data_local = None    
-    lock.acquire()
-    toot_id = g_data.toot_id
-    if toot_id != prev_toot_id:
-      g_data_local = copy.deepcopy(g_data)
-    lock.release()
-    
-    if toot_id != prev_toot_id:
-      prev_toot_id = toot_id
-      window['-NAME-'].update(g_data_local.name)
-      window['-TOOT-'].update(g_data_local.toot_text)
-      window['-AVATAR-'].update(data=g_data_local.img_avatar)
-      window['-BOOSTED_AVATAR-'].update(data=g_data_local.img_boosted_avatar)
+    if not q1.empty(): # 次のTootがある場合
+      toot = q1.get()
       
-  window.close()
+      # LTLとHTLの両方に登録してある場合、重複になってしまうのでフラグ管理
+      if tooted_id.get(toot['id']) == None:
+        if len(tooted_id) > 10000:
+          tooted_id = {}
+        tooted_id[toot['id']] = 1
+        if toot.get('toot_account_full_id') != None:
+          # 時報
+          q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
+        else:
+          # 通常Toot
+          result = do_1toot(toot)
+
+      if not q2.empty():
+        (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+        if nSpeaker != '':
+          if useVV.checkVV() == True:
+            useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+            sleep(0.3)
+
+    sleep(0.016)
 
 if __name__ == '__main__':
     main()
