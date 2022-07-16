@@ -174,7 +174,7 @@ def do_1toot(toots):
 
   if len(toot_text) > 255:
     toot_text = toot_text[:255] + "。以下略"
-    toot_text = toot_text0[:255] + "。以下略"
+    toot_text0 = toot_text0[:255] + "。以下略"
     
   if toot_text == '' or toot_text == None:
     toot_text = "なし"
