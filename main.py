@@ -283,7 +283,8 @@ def do_1toot(toots):
   if toot_account != "":
     toot_text = toot_account + '　' + toot_text
   
-
+  # また重複Tootが発生したのでデバッグ用にID表示
+  print('put - toot id: ' + str(toots['id']))
   q2.put((nSpeaker, toots['account']['id'], toot_text, toot_account_full_id, toot_text0))
   
   result = {}
