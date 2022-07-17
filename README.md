@@ -13,7 +13,6 @@
 - macの場合はおそらくそのままでは正常に動作しません。グラフィック用ライブラリの`tcl-tk`のバージョンが大抵の場合8.5.9であり、手動で8.6系に更新する必要あります(そのままでは文字が全く表示されないなど、実質使用できません)。ggって対応してください。
   [ここ](https://zenn.dev/spacegeek/articles/3f8db1ffcd401e)が役に立つと思います。
 - `VOICEVOX`が起動していればしゃべります。起動していない場合は文字だけです。途中で起動すればそれ以降はしゃべります。
-- 「tcl-tkのインストールや更新がうまくいかない」「画像は不要、文字＋しゃべりだけでいい」という場合は下記で`main.py`ではなく`mainc.py`をご使用ください。
 
 ```python
 # Python環境が構築されていること (pyenv local 3.8.9 とか)
@@ -30,8 +29,7 @@ pip install -r requirements-wsl2.txt # WSL2の場合
 # WSL2の場合は以下も(インストールされていなければ)
 sudo apt-get -y install python3-tk
 
-python main.py # GUI版
-python mainc.py # CUI版
+python main.py
 ```
 
 ## 注意点
