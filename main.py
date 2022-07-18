@@ -119,41 +119,49 @@ class TootManager:
         # 通常Tootの場合
         else:
           # まず、ログインIDを割り出す。というのも、同じサーバーであれば @xxxx@xxxxxxx@xxx ではなく xxx になってしまうので
-            s = toot['account']['acct']
-            if s[0] != "@":
-              s = "@" + s
-            if s[1:].find('@') < 0:
-              s = s + '@' + toot['server'][8:]
-              
-            # しゃべる対象の人か？
-            bFlag = True
-            if TootManager.toot_account.get(s) == None:
-              bFlag = False
-
-            s = s + toot['content']
+          s = toot['account']['acct']
+          if s[0] != "@":
+            s = "@" + s
+          if s[1:].find('@') < 0:
+            s = s + '@' + toot['server'][8:]
             
-            # すでに同じセリフをしゃべっていないか
-            if TootManager.tooted_str.get(s) == None:
-              if len(TootManager.tooted_str) > 100:
-                TootManager.tooted_str = {}
-              TootManager.tooted_str[s] = 1
-              
-              #ここに来たら、しゃべっていない ---> 今からしゃべる
-              result = self.do_1toot(q2, toot)
-              self.update_toot(toot, result)
+          # しゃべる対象の人か？(喋らなくても表示は更新するので、ここで終わりでは無い)
+          bSpeakFlag = True
+          if TootManager.toot_account.get(s) == None:
+            bSpeakFlag = False
 
-              if not q2.empty():
-                (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-                if nSpeaker != '':
-                  if bFlag == True and TootManager.useVV.checkVV() == True:
-                    TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-                    sleep(0.3)
-                  else:
-                    sleep(2.0) # 喋らない時は待ち時間を伸ばす
+          s = s + toot['content']
+          s = s.replace('\n', '。')
+          s = s.replace('<br />', '。')
+          s = s.replace('<br>', '。')
+          s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
+
+          print("照合用Str: " + s)
+          
+          # すでに同じセリフをしゃべっていないか
+          if TootManager.tooted_str.get(s) == None:
+            if len(TootManager.tooted_str) > 100:
+              TootManager.tooted_str = {}
+            TootManager.tooted_str[s] = 1
             
-            else:
-              # すでにしゃべっているので喋らないが、辞書はもう不要なので削除する
-              del TootManager.tooted_str[s]
+            #ここに来たら、しゃべっていない ---> 今からしゃべる
+            result = self.do_1toot(q2, toot)
+            self.update_toot(toot, result)  # 表示更新
+
+            if not q2.empty():
+              (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+              if nSpeaker != '':
+                if bSpeakFlag == True and TootManager.useVV.checkVV() == True:
+                  TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+                  sleep(0.3)
+                else:
+                  sleep(2.0) # 喋らない時は待ち時間を伸ばす
+          
+          else:
+            # すでにしゃべっているので喋らないし表示も更新しないが、辞書はもう不要なので削除する
+            # 同じ内容のTootをする場合があるが、辞書に残っていると除外されてしまう。そこで2回目なら無視しようということ
+            # ただしこれ、1st.サーバーだと意味がない。あくまで2nd.が対象
+            del TootManager.tooted_str[s]
             
       sleep(0.1)
 
