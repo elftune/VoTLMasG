@@ -104,48 +104,57 @@ class TootManager:
     while True:
       if not TootManager.queue.empty(): # 次のTootがある場合
         toot = TootManager.queue.get()
-
-        # LTLとHTLの両方に登録してある場合、重複になってしまうのでフラグ管理
-        if TootManager.tooted_id.get(toot['id']) == None:
-          if len(TootManager.tooted_id) > 10000:
-            TootManager.tooted_id = {}
-          TootManager.tooted_id[toot['id']] = 1
-
-          if toot.get('toot_account_full_id') != None:
-            # 時報
-            self.update_toot(toot, toot)
-            q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
-          else:
-            # 通常Toot
-            # すでに他のサーバーでしゃべっていないか？
+        
+        # 時報の場合は無条件に表示更新＋喋る
+        if toot.get('toot_account_full_id') != None:
+          # 時報
+          self.update_toot(toot, toot)
+          q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))      
+          if not q2.empty():
+            (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+            if TootManager.useVV.checkVV() == True:
+              TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+          sleep(2.0)
+        
+        # 通常Tootの場合
+        else:
+          # まず、ログインIDを割り出す。というのも、同じサーバーであれば @xxxx@xxxxxxx@xxx ではなく xxx になってしまうので
             s = toot['account']['acct']
             if s[0] != "@":
               s = "@" + s
             if s[1:].find('@') < 0:
               s = s + '@' + toot['server'][8:]
+              
+            # しゃべる対象の人か？
+            bFlag = True
+            if TootManager.toot_account.get(s) == None:
+              bFlag = False
+
             s = s + toot['content']
+            
+            # すでに同じセリフをしゃべっていないか
             if TootManager.tooted_str.get(s) == None:
               if len(TootManager.tooted_str) > 100:
                 TootManager.tooted_str = {}
               TootManager.tooted_str[s] = 1
-
+              
+              #ここに来たら、しゃべっていない ---> 今からしゃべる
               result = self.do_1toot(q2, toot)
               self.update_toot(toot, result)
+
+              if not q2.empty():
+                (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+                if nSpeaker != '':
+                  if bFlag == True and TootManager.useVV.checkVV() == True:
+                    TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+                    sleep(0.3)
+                  else:
+                    sleep(2.0) # 喋らない時は待ち時間を伸ばす
+            
             else:
+              # すでにしゃべっているので喋らないが、辞書はもう不要なので削除する
               del TootManager.tooted_str[s]
             
-        # ここまでで表示は更新されている。ここからは、再生するかどうか
-        if not q2.empty():
-          (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-          if TootManager.toot_account.get(toot_account_full_id) != None or account_id == '':
-              if nSpeaker != '':
-                if TootManager.useVV.checkVV() == True:
-                  TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-          else:
-            sleep(2.0)
-
-          sleep(0.3)
-
       sleep(0.1)
 
   def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL):
