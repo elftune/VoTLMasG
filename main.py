@@ -30,8 +30,6 @@ class TootManager:
     img_avatar = None
     img_boosted_avatar = None
 
-  convURL = re.compile(r"(https?|ftp)(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)")
-
   class MyListener(StreamListenerEx):
     def __init__(self, server_address):
       self.server_address = server_address
@@ -50,7 +48,6 @@ class TootManager:
   queue = queue.Queue() # Toot表示用
   lock = threading.Lock()
   useVV = UseVV.UseVV()
-  tooted_id = {}
   tooted_str = {}
   toot_account = {}
   share_data = GL_data()
@@ -63,6 +60,7 @@ class TootManager:
   # GETで得られるデータで本文(content)には <p></p>がだいたいついているので消すための準備
   conv = re.compile(r"<[^>]*?>")
   # URLは喋らせると長いので丸ごと消すための準備
+  convURL = re.compile(r"(https?|ftp)(:\/\/[-_\.!~*\'()a-zA-Z0-9;\/?:\@&=\+\$,%#]+)")
 
 
   def imread_web(self, url):
@@ -161,6 +159,7 @@ class TootManager:
             # すでにしゃべっているので喋らないし表示も更新しないが、辞書はもう不要なので削除する
             # 同じ内容のTootをする場合があるが、辞書に残っていると除外されてしまう。そこで2回目なら無視しようということ
             # ただしこれ、1st.サーバーだと意味がない。あくまで2nd.が対象
+            print("↑ 表示更新・スピーク　省略")
             del TootManager.tooted_str[s]
             
       sleep(0.1)
@@ -179,14 +178,14 @@ class TootManager:
     try:
       json_open = open(FILE_SETTINGS_1, 'r', encoding='UTF-8')
     except:
-      print(f"ERROR: {FILE_SETTINGS_1} が準備できていません。READMEを確認ください。")
+      sg.popup(f"ERROR: {FILE_SETTINGS_1} が準備できていません。READMEを確認ください。")
       exit()
 
     try:  
       json_load = json.load(json_open)
       url = json_load[account_info]['url']
       if url[0:8] != "https://":
-        print("ERROR: https:// からアドレスが始まるWebサイトのみ対応です。") # これ以降で先頭8文字が"https://"前提のところがあるので
+        sg.popup("ERROR: https:// からアドレスが始まるWebサイトのみ対応です。") # これ以降で先頭8文字が"https://"前提のところがあるので
         exit()
       email = json_load[account_info]['user_id']
       password = json_load[account_info]['password']
@@ -198,7 +197,7 @@ class TootManager:
         TootManager.png_files = glob.glob(TootManager.png_folder + "/*.png")
             
     except:
-      print(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
+      sg.popup(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
       exit()
     
     # 文字列置換情報
@@ -207,7 +206,7 @@ class TootManager:
       try:
         json_open = open(FILE_SETTINGS_2, 'r', encoding='UTF-8')
       except:
-        print(f"{FILE_SETTINGS_2} が存在しないため名前をしゃべりません。また、単語変換もないため不自然な発声が多くなります。\nREADMEを確認し、{FILE_SETTINGS_2}を設定されることをお勧めします。")
+        sg.popup("{FILE_SETTINGS_2} が存在しないため名前をしゃべりません。また、単語変換もないため不自然な発声が多くなります。\nREADMEを確認し、{FILE_SETTINGS_2}を設定されることをお勧めします。")
 
       if json_open != None:
         try:
@@ -218,7 +217,7 @@ class TootManager:
           for i in TootManager.replace_id2name['users']:
             TootManager.toot_account[i['id']] = 1
         except:
-          print(f"ERROR: {FILE_SETTINGS_2} の内容が適切ではありません。READMEを確認ください。")
+          sg.popup(f"ERROR: {FILE_SETTINGS_2} の内容が適切ではありません。READMEを確認ください。")
           exit()
 
 
@@ -231,7 +230,7 @@ class TootManager:
       else:
         mastodon = MastodonEx( client_id=cid_file, access_token=token_file, api_base_url=url )
     except:
-      print(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
+      sg.popup(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
       exit()
     self.server_address = url
 
@@ -453,7 +452,7 @@ def main():
   account_info1 = 'server_nickname_1'
   account_info2 = 'server_nickname_2'
 
-  JST = tz.gettz('Asia/Tokyo') # お好みで
+  JST = tz.gettz('Asia/Tokyo')
   weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] # 月曜から
   prev_toot_id = -1
 
@@ -506,7 +505,6 @@ def main():
           if TootManager.useVV.checkVV() == True:
             nSpeaker = random.randint(0, TootManager.useVV.getMaxSpeakerID())
             s = 'に...'
-
             mastodon1.put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
     
@@ -514,7 +512,6 @@ def main():
           if TootManager.useVV.checkVV() == True:
             nSpeaker = random.randint(0, TootManager.useVV.getMaxSpeakerID())
             s = 'にゃ...'
-
             mastodon1.put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
     
@@ -522,7 +519,6 @@ def main():
           if TootManager.useVV.checkVV() == True:
             nSpeaker = random.randint(0, TootManager.useVV.getMaxSpeakerID())
             s = 'にゃんにゃんにゃんにゃんにゃんにゃんにゃんにゃん'
-
             mastodon1.put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
@@ -533,28 +529,27 @@ def main():
             s += TootManager.useVV.getSpeakerNameFromSpeakerID(nSpeaker) + "が\n"
             s += '午前' + str(h) if h <= 12 else '午後' + str(h - 12)
             s += '時' + str(m) + '分くらいを\nお知らせします。'
-            
             mastodon1.put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
     dt = now.strftime('%Y/%m/%d(%a) %H:%M:%S')
     window['-TIME-'].update(dt)
 
-    g_data_local = None    
+    data_local = None    
     TootManager.lock.acquire()
     toot_id = TootManager.share_data.toot_id
     if toot_id != prev_toot_id:
-      g_data_local = copy.deepcopy(TootManager.share_data)
+      data_local = copy.deepcopy(TootManager.share_data)
     TootManager.lock.release()
     
     if toot_id != prev_toot_id:
       prev_toot_id = toot_id
-      window['-NAME-'].update(g_data_local.name)
-      window['-TOOT-'].update(g_data_local.toot_text)
-      window['-AVATAR-'].update(data=g_data_local.img_avatar)
-      window['-BOOSTED_AVATAR-'].update(data=g_data_local.img_boosted_avatar)
+      window['-NAME-'].update(data_local.name)
+      window['-TOOT-'].update(data_local.toot_text)
+      window['-AVATAR-'].update(data=data_local.img_avatar)
+      window['-BOOSTED_AVATAR-'].update(data=data_local.img_boosted_avatar)
       
   window.close()
 
 if __name__ == '__main__':
-    main()
+  main()
