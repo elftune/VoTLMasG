@@ -19,7 +19,6 @@ import cv2, PySimpleGUI as sg, demoji
 from mastodonEx import MastodonEx, StreamListenerEx
 import UseVV
 
-
       
 class TootManager:
 
@@ -48,6 +47,7 @@ class TootManager:
   queue = queue.Queue() # Toot表示用
   lock = threading.Lock()
   useVV = UseVV.UseVV()
+  tooted_id = {}
   tooted_str = {}
   toot_account = {}
   share_data = GL_data()
@@ -136,12 +136,24 @@ class TootManager:
 
           print("照合用Str: " + s)
           
+          bFlagProc = True
           # すでに同じセリフをしゃべっていないか
           if TootManager.tooted_str.get(s) == None:
             if len(TootManager.tooted_str) > 100:
               TootManager.tooted_str = {}
             TootManager.tooted_str[s] = 1
+          else:
+            bFlagProc = False
             
+          # Toot IDで判別
+          if TootManager.tooted_id.get(toot['id']) == None:
+            if len(TootManager.tooted_id) > 1000:
+              TootManager.tooted_id = {}
+            TootManager.tooted_id[toot['id']] = 1
+          else:
+            bFlagProc = False
+
+          if bFlagProc == True:            
             #ここに来たら、しゃべっていない ---> 今からしゃべる
             result = self.do_1toot(q2, toot)
             self.update_toot(toot, result)  # 表示更新
@@ -154,11 +166,8 @@ class TootManager:
                   sleep(0.3)
                 else:
                   sleep(2.0) # 喋らない時は待ち時間を伸ばす
-          
+            
           else:
-            # すでにしゃべっているので喋らないし表示も更新しないが、辞書はもう不要なので削除する
-            # 同じ内容のTootをする場合があるが、辞書に残っていると除外されてしまう。そこで2回目なら無視しようということ
-            # ただしこれ、1st.サーバーだと意味がない。あくまで2nd.が対象
             print("↑ 表示更新・スピーク　省略")
             del TootManager.tooted_str[s]
             
