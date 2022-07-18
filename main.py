@@ -117,24 +117,30 @@ class TootManager:
             q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))
           else:
             # 通常Toot
-            result = self.do_1toot(q2, toot)
-            self.update_toot(toot, result)
+            # すでに他のサーバーでしゃべっていないか？
+            s = toot['account']['acct']
+            if s[0] != "@":
+              s = "@" + s
+            if s[1:].find('@') < 0:
+              s = s + '@' + toot['server'][8:]
+            s = s + toot['content']
+            if TootManager.tooted_str.get(s) == None:
+              if len(TootManager.tooted_str) > 100:
+                TootManager.tooted_str = {}
+              TootManager.tooted_str[s] = 1
+
+              result = self.do_1toot(q2, toot)
+              self.update_toot(toot, result)
+            else:
+              del TootManager.tooted_str[s]
             
         # ここまでで表示は更新されている。ここからは、再生するかどうか
         if not q2.empty():
           (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
           if TootManager.toot_account.get(toot_account_full_id) != None or account_id == '':
-            # すでに他のサーバーでしゃべっていないか？
-            s = toot_account_full_id + toot_text
-            if TootManager.tooted_str.get(s) == None:
-              if len(TootManager.tooted_str) > 100:
-                TootManager.tooted_str = {}
-              TootManager.tooted_str[s] = 1
               if nSpeaker != '':
                 if TootManager.useVV.checkVV() == True:
                   TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
-            else:
-              del TootManager.tooted_str[s]
           else:
             sleep(2.0)
 
