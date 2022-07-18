@@ -128,23 +128,23 @@ class TootManager:
           if TootManager.toot_account.get(s) == None:
             bSpeakFlag = False
 
-          s = s + toot['content']
-          s = s.replace('\n', '。')
-          s = s.replace('<br />', '。')
-          s = s.replace('<br>', '。')
-          s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
-
-          print("照合用Str: " + s)
-          
-          bFlagProc = True
           # すでに同じセリフをしゃべっていないか
+          # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
+          bFlagProc = True
+          s = s + toot['content']
+          s = s.replace('\n', '')
+          s = s.replace('<br />', '')
+          s = s.replace('<br>', '')
+          s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
+          print("照合用Str: " + s)
           if TootManager.tooted_str.get(s) == None:
             if len(TootManager.tooted_str) > 100:
               TootManager.tooted_str = {}
             TootManager.tooted_str[s] = 1
           else:
             bFlagProc = False
-            
+
+          #　同一サーバー内限定だが、同じTootを除去する(LTLとHTLで両方拾ってしまうので)            
           # Toot IDで判別
           if TootManager.tooted_id.get(toot['id']) == None:
             if len(TootManager.tooted_id) > 1000:
