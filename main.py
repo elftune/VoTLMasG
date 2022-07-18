@@ -51,6 +51,8 @@ class TootManager:
   lock = threading.Lock()
   useVV = UseVV.UseVV()
   tooted_id = {}
+  tooted_str = {}
+  toot_account = {}
   share_data = GL_data()
   ICON_W_H = 100 # アイコンサイズ
   ICON_W_H_2 = 32 # BTアイコンのサイズ
@@ -108,6 +110,7 @@ class TootManager:
           if len(TootManager.tooted_id) > 10000:
             TootManager.tooted_id = {}
           TootManager.tooted_id[toot['id']] = 1
+
           if toot.get('toot_account_full_id') != None:
             # 時報
             self.update_toot(toot, toot)
@@ -116,26 +119,33 @@ class TootManager:
             # 通常Toot
             result = self.do_1toot(q2, toot)
             self.update_toot(toot, result)
-
+            
+        # ここまでで表示は更新されている。ここからは、再生するかどうか
         if not q2.empty():
           (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-          if self.FLAG_USE_VV == True:
-            if toot['server'] == self.server_address:
+          if TootManager.toot_account.get(toot_account_full_id) != None or account_id == '':
+            # すでに他のサーバーでしゃべっていないか？
+            s = toot_account_full_id + toot_text
+            if TootManager.tooted_str.get(s) == None:
+              if len(TootManager.tooted_str) > 100:
+                TootManager.tooted_str = {}
+              TootManager.tooted_str[s] = 1
               if nSpeaker != '':
                 if TootManager.useVV.checkVV() == True:
                   TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
             else:
-              sleep(2.0)
+              del TootManager.tooted_str[s]
+          else:
+            sleep(2.0)
 
           sleep(0.3)
 
-      sleep(0.1) # もう少し短くしてもいいだろうが、まぁいいや
+      sleep(0.1)
 
-  def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_USE_CLOCK, FLAG_USE_VV):
+  def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL):
     print("初期化開始")
     
     self.appname = 'VoTLMasG'
-    self.FLAG_USE_VV = FLAG_USE_VV
 
     cid_file = 'file_cid_' + account_info + '.txt'
     token_file = 'file_access_token_' + account_info + '.txt'
@@ -181,6 +191,9 @@ class TootManager:
           json_load = json.load(json_open)
           TootManager.replace_id2name = json_load['replace_id2name']
           TootManager.replace_content = json_load['replace_content']
+          
+          for i in TootManager.replace_id2name['users']:
+            TootManager.toot_account[i['id']] = 1
         except:
           print(f"ERROR: {FILE_SETTINGS_2} の内容が適切ではありません。READMEを確認ください。")
           exit()
@@ -394,7 +407,7 @@ class TootManager:
       if toot_account != "":
         toot_text = toot_account + '　' + toot_text
       
-      print("Stream(" + self.server_address + "), toot-id:" + str(toots['id']))
+      print("Stream(" + toots['server'] + "), account:" + toot_account_full_id + ", toot-id: " + str(toots['id']))
       q2.put((nSpeaker, toots['account']['id'], toot_text, toot_account_full_id, toot_text0))
       
       result = {}
@@ -421,8 +434,8 @@ def main():
   weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] # 月曜から
   prev_toot_id = -1
 
-  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_USE_CLOCK, True)
-  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL, False, False)
+  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL)
+  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL)
 
   sg.theme('DarkBrown1')
   col1 = [
