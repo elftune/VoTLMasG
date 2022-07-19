@@ -230,7 +230,6 @@ class TootManager:
           exit()
 
 
-    # 初回起動時など'client_id.txt' が未作成の場合 ('access_token.txt'もないだろうから作る)
     try:
       if os.path.isfile(cid_file) == False:
         MastodonEx.create_app(self.appname, api_base_url = url, to_file = cid_file )
@@ -243,8 +242,6 @@ class TootManager:
       exit()
     self.server_address = url
 
-    # 欧米圏はスキップさせたい（膨大に増えるので）　中韓はしゃーない
-    # \u200Bは半角スペースの幅なし？
     # self.convp = re.compile('[a-zA-Z0-9!\"“#$%\&\'’()=\-~|¥\]+`@\{\}*;:<>?,./_。 \n\u200B]+')
     print("初期化完了\n")
     self.mastodon = mastodon
@@ -460,13 +457,14 @@ def main():
 
   account_info1 = 'server_nickname_1'
   account_info2 = 'server_nickname_2'
+  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL)
+  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL)
+
 
   JST = tz.gettz('Asia/Tokyo')
   weekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] # 月曜から
   prev_toot_id = -1
 
-  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL)
-  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL)
 
   sg.theme('DarkBrown1')
   col1 = [
