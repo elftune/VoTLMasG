@@ -107,6 +107,7 @@ class TootManager:
         if toot.get('toot_account_full_id') != None:
           # 時報
           self.update_toot(toot, toot)
+          print("\nDbg: 時報: " + toot['toot_text0'].replace('\n', ''))
           q2.put((toot['speaker'],'', toot['toot_text0'], '', toot['toot_text0'].replace('\n', '')))      
           if not q2.empty():
             (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
@@ -132,29 +133,41 @@ class TootManager:
           # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
           bFlagProc = True
           s = s + toot['content']
+          print("\n(1)Dbg: Str(Org):  " + s)
           s = s.replace('\n', '')
           s = s.replace('<br />', '')
           s = s.replace('<br>', '')
           s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
-          print("照合用Str: " + s)
+          print("(2)Dbg: Str(調整): " + s)
           if TootManager.tooted_str.get(s) == None:
-            if len(TootManager.tooted_str) > 100:
+            print("  (3A)Dbg: tooted_str.get(s) == None, len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
+            if len(TootManager.tooted_str) > 10000:
+              print("    (4)Dbg: tooted_str == {}")
               TootManager.tooted_str = {}
             TootManager.tooted_str[s] = 1
           else:
+            print("  (3B)Dbg: tooted_str.get(s) != None: " + str(TootManager.tooted_str[s]) + ", len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
             bFlagProc = False
 
           #　同一サーバー内限定だが、同じTootを除去する(LTLとHTLで両方拾ってしまうので)            
           # Toot IDで判別
           if TootManager.tooted_id.get(toot['id']) == None:
-            if len(TootManager.tooted_id) > 1000:
+            print("  (5A)Dbg: tooted_id.get(toot['id']) == None")
+            if len(TootManager.tooted_id) > 10000:
+              print("    (6)Dbg: tooted_id == {}")
               TootManager.tooted_id = {}
             TootManager.tooted_id[toot['id']] = 1
           else:
+            print("  (5B)Dbg: tooted_id.get(toot['id']) == None: " + str(TootManager.tooted_id[toot['id']]) + ", len(TootManager.tooted_id)=" + str(len(TootManager.tooted_id)))
             bFlagProc = False
 
-          if bFlagProc == True:            
-            #ここに来たら、しゃべっていない ---> 今からしゃべる
+          if bFlagProc == True:
+            if bSpeakFlag == True:             
+              print("(9A) bFlagProc == True, 表示更新＋スピーク")
+            else:
+              print("(9B) bFlagProc == True, 表示更新のみ")
+
+            #ここに来たら、表示更新していない・しゃべっていない ---> 今から更新する・しゃべる
             result = self.do_1toot(q2, toot)
             self.update_toot(toot, result)  # 表示更新
 
@@ -168,8 +181,8 @@ class TootManager:
                   sleep(2.0) # 喋らない時は待ち時間を伸ばす
             
           else:
-            print("↑ 表示更新・スピーク　省略")
-            del TootManager.tooted_str[s]
+            print("(9B) bFlagProc == False, ↑ 表示更新・スピーク　省略")
+            # del TootManager.tooted_str[s]
             
       sleep(0.1)
 
@@ -196,6 +209,7 @@ class TootManager:
       if url[0:8] != "https://":
         sg.popup("ERROR: https:// からアドレスが始まるWebサイトのみ対応です。") # これ以降で先頭8文字が"https://"前提のところがあるので
         exit()
+      print(f"　server({TootManager.instance_number}) = " + url)
       email = json_load[account_info]['user_id']
       password = json_load[account_info]['password']
       
