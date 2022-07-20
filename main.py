@@ -192,10 +192,11 @@ class TootManager:
             
       sleep(0.1)
 
-  def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL):
+  def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT):
     print("初期化開始")
     
     self.appname = 'VoTLMasG'
+    self.FLAG_TOOT_SPOILER_TEXT = FLAG_TOOT_SPOILER_TEXT
 
     cid_file = 'file_cid_' + account_info + '.txt'
     token_file = 'file_access_token_' + account_info + '.txt'
@@ -370,7 +371,7 @@ class TootManager:
       toot_text = toots['content']
 
       if toots['spoiler_text'] != '':
-        toot_text = toots['spoiler_text'] + " 。[たたむ]。 " + toot_text
+        toot_text = toots['spoiler_text'] + " 。[たたむ]。 " + toot_text if self.FLAG_TOOT_SPOILER_TEXT == True else ""
 
       toot_text = toot_text.replace('\n', '。')
       toot_text = toot_text.replace('<br />', '。')
@@ -471,14 +472,16 @@ class TootManager:
 
 def main():
   # フラグ (HTLと通知は強制)
-  FLAG_USE_LTL = True # ローカル。fedibirdのようにLTLがない場合はFalseに
-  FLAG_USE_FTL = False # 連合 (大量に流れるので片っ端からdomain_blockしてからでないと実用的ではないと思う)
-  FLAG_USE_CLOCK = True
+  FLAG_USE_LTL = True # ローカルTL (fedibirdのようにLTLがない場合は無意味)
+  FLAG_USE_FTL = False # 連合TL (大量に流れるので片っ端からdomain_blockしてからでないと実用的ではないと思う)
+  FLAG_USE_CLOCK = True # 時報を喋るか
+  CLOCK_INTERVAL_MINUTES = 15 # 何分ごとに時報を喋るか
+  FLAG_TOOT_SPOILER_TEXT = True # CW (たたむ) の内容を喋るか
 
   account_info1 = 'server_nickname_1'
   account_info2 = 'server_nickname_2'
-  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL)
-  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL)
+  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT)
+  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT)
 
 
   JST = tz.gettz('Asia/Tokyo')
@@ -549,7 +552,7 @@ def main():
             mastodon1.put_toot(nSpeaker, now, s)
             limit_time = now + datetime.timedelta(seconds=2) # 2秒後までは無視とすることで繰り返し実行をさせない
 
-        if (m % 5 == 0) and (s == 0):
+        if (m % CLOCK_INTERVAL_MINUTES == 0) and (s == 0):
           if TootManager.useVV.checkVV() == True:
             nSpeaker = random.randint(0, TootManager.useVV.getMaxSpeakerID())
             s = 'にゃーん。\n'
