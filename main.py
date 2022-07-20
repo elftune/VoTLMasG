@@ -133,17 +133,19 @@ class TootManager:
           # すでに同じセリフをしゃべっていないか
           # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
           bFlagProc = True
-          # "RT @xxxx 本文" の場合、"本文" までカットする (複数RT先指定がある場合には無意味だが多くは単一指定だろう...)
-          s0 = toot['content']
-          if s0[0: 4] == 'RT @':
-              s0 = s0[s0[4:].find(' ')+5:]
-          s = s + s0
-
           print("\n(1:" +  str(a_id) + ")Dbg: Str(Org):  " + s)
           s = s.replace('\n', '')
           s = s.replace('<br />', '')
           s = s.replace('<br>', '')
           s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
+
+          # ここまでの段階では "RT @"がないので無意味だった
+          # "RT @xxxx 本文" の場合、"本文" までカットする (複数RT先指定がある場合には無意味だが多くは単一指定だろう...)
+          idx = s.find('RT @')
+          if idx >= 0:
+            s0 = s[idx+4:]
+            s = s[0:idx] + s0[s0.find(' ')+1:]
+
           print("(2:" +  str(a_id) + ")Dbg: Str(調整): " + s)
           if TootManager.tooted_str.get(s) == None:
             print("  (3A)Dbg: tooted_str.get(s) == None, len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
