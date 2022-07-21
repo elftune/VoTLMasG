@@ -133,6 +133,7 @@ class TootManager:
           # すでに同じセリフをしゃべっていないか
           # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
           bFlagProc = True
+          s = toot['content']
           print("\n(1:" +  str(a_id) + ")Dbg: Str(Org):  " + s)
           s = s.replace('\n', '')
           s = s.replace('<br />', '')
