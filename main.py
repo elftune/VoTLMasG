@@ -22,6 +22,7 @@ import UseVV
 
       
 class TootManager:
+  MAX_TOOT_LETTERS = 255 # 何文字までしゃべるか。あまり長いとVOICEVOXが落ちるかもしれないので注意
 
   class GL_data:
     toot_id = -1
@@ -435,9 +436,9 @@ class TootManager:
         toot_text += "。メディアあり"
         toot_text0 += " メディアあり"
 
-      if len(toot_text) > 255:
-        toot_text = toot_text[:255] + "。以下略"
-        toot_text0 = toot_text0[:255] + "。以下略"
+      if len(toot_text) > TootManager.MAX_TOOT_LETTERS:
+        toot_text = toot_text[:TootManager.MAX_TOOT_LETTERS] + "。以下略"
+        toot_text0 = toot_text0[:TootManager.MAX_TOOT_LETTERS] + "。以下略"
         
       if toot_text == '' or toot_text == None:
         toot_text = "なし"
