@@ -51,7 +51,7 @@ class UseVV:
       playsound(soundFile)
 
   def speak_toot(self, nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0):
-    print("WAV作成・再生: Start " + datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
+    print("【WAV作成・再生】: Start " + datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'))
     
     try:
       f = open('audio/text.txt', 'w', encoding='UTF-8')
@@ -69,16 +69,16 @@ class UseVV:
       subprocess.run(s, shell=True)
 
       if os.path.getsize("audio/audio.wav") < 100:
-        print("[CreateFile Error !!] audio/audio.wav")
+        print("ERROR: [Create WAV-File Error !!] audio/audio.wav")
         return
 
-      print(f"({nSpeaker}) : {toot_account_full_id} : {toot_text0}\r")
+      print(f"({nSpeaker}) : {toot_account_full_id} : " + toot_text0.replace('\n', ''))
       self.playMySound("audio/audio.wav")
-      print("WAV作成・再生: End")
+      print("【WAV作成・再生】: End")
       return True
 
     except:
-      print("Error at speak_toot()")
+      print("ERROR: Error at speak_toot()")
       self.playMySound('audioError.wav')
       self.vv_data = []
       self.MAX_SPEAKERS = -1  

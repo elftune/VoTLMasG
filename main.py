@@ -33,6 +33,7 @@ class TootManager:
     def __init__(self, server_address):
       self.server_address = server_address
     
+    # 例外ってどこで拾うんだ？とりあえずこうやってみよう
     def on_update(self, toot):
       toot['server'] = self.server_address
       TootManager.queue.put(toot)
@@ -42,6 +43,12 @@ class TootManager:
         notification['status']['server'] = self.server_address
         TootManager.queue.put(notification['status'])
 
+    def on_error(self, status_code):
+      str = 'ERROR:エラーが発生しました。 Error Code: ' + str(status_code)
+      print(str)
+      sg.popup(str)
+      
+      
   # class変数
   instance_number = 0
   queue = queue.Queue() # Toot表示用
@@ -129,6 +136,9 @@ class TootManager:
           bSpeakFlag = True
           if TootManager.toot_account.get(s) == None:
             bSpeakFlag = False
+          
+          if self.FLAG_SPEAK_ALL_ACCOUNT == True:
+            bSpeakFlag = True
 
           # すでに同じセリフをしゃべっていないか
           # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
@@ -195,11 +205,15 @@ class TootManager:
             
       sleep(0.1)
 
-  def __init__(self, account_info, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT):
+  def __init__(self, account_info, flags):
     print("初期化開始")
     
     self.appname = 'VoTLMasG'
-    self.FLAG_TOOT_SPOILER_TEXT = FLAG_TOOT_SPOILER_TEXT
+
+    self.FLAG_TOOT_SPOILER_TEXT = flags['FLAG_TOOT_SPOILER_TEXT']
+    self.FLAG_USE_LTL = flags['FLAG_USE_LTL']
+    self.FLAG_USE_FTL = flags['FLAG_USE_FTL']
+    self.FLAG_SPEAK_ALL_ACCOUNT = flags['FLAG_SPEAK_ALL_ACCOUNT']
 
     cid_file = 'file_cid_' + account_info + '.txt'
     token_file = 'file_access_token_' + account_info + '.txt'
@@ -210,14 +224,18 @@ class TootManager:
     try:
       json_open = open(FILE_SETTINGS_1, 'r', encoding='UTF-8')
     except:
-      sg.popup(f"ERROR: {FILE_SETTINGS_1} が準備できていません。READMEを確認ください。")
+      s = f"ERROR: {FILE_SETTINGS_1} が準備できていません。READMEを確認ください。"
+      print(s)
+      sg.popup(s)
       exit()
 
     try:  
       json_load = json.load(json_open)
       url = json_load[account_info]['url']
       if url[0:8] != "https://":
-        sg.popup("ERROR: https:// からアドレスが始まるWebサイトのみ対応です。") # これ以降で先頭8文字が"https://"前提のところがあるので
+        s = "ERROR: https:// からアドレスが始まるWebサイトのみ対応です。" # これ以降で先頭8文字が"https://"前提のところがあるので
+        print(s)
+        sg.popup(s)
         exit()
       print(f"　server({TootManager.instance_number}) = " + url)
       email = json_load[account_info]['user_id']
@@ -230,7 +248,9 @@ class TootManager:
         TootManager.png_files = glob.glob(TootManager.png_folder + "/*.png")
             
     except:
-      sg.popup(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
+      s = f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。"
+      print(s)
+      sg.popup(s)
       exit()
     
     # 文字列置換情報
@@ -239,7 +259,9 @@ class TootManager:
       try:
         json_open = open(FILE_SETTINGS_2, 'r', encoding='UTF-8')
       except:
-        sg.popup("{FILE_SETTINGS_2} が存在しないため名前をしゃべりません。また、単語変換もないため不自然な発声が多くなります。\nREADMEを確認し、{FILE_SETTINGS_2}を設定されることをお勧めします。")
+        s = "{FILE_SETTINGS_2} が存在しないため名前をしゃべりません。また、単語変換もないため不自然な発声が多くなります。\nREADMEを確認し、{FILE_SETTINGS_2}を設定されることをお勧めします。"
+        print(s)
+        sg.popup(s)
 
       if json_open != None:
         try:
@@ -250,7 +272,9 @@ class TootManager:
           for i in TootManager.replace_id2name['users']:
             TootManager.toot_account[i['id']] = 1
         except:
-          sg.popup(f"ERROR: {FILE_SETTINGS_2} の内容が適切ではありません。READMEを確認ください。")
+          s = f"ERROR: {FILE_SETTINGS_2} の内容が適切ではありません。READMEを確認ください。"
+          print(s)
+          sg.popup(s)
           exit()
 
 
@@ -262,7 +286,9 @@ class TootManager:
       else:
         mastodon = MastodonEx( client_id=cid_file, access_token=token_file, api_base_url=url )
     except:
-      sg.popup(f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。")
+      s = f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。"
+      print(s)
+      sg.popup(s)
       exit()
     self.server_address = url
 
@@ -277,7 +303,7 @@ class TootManager:
     th.start()
 
     # LTL
-    if FLAG_USE_LTL == True:
+    if self.FLAG_USE_LTL == True:
       list = []
       try:
         list = mastodon.timeline_local(limit=1)
@@ -289,7 +315,7 @@ class TootManager:
         pass
 
     # FTL
-    if FLAG_USE_FTL == True:
+    if self.FLAG_USE_FTL == True:
         th = threading.Thread(target = self.mastodon.stream_public, args=([self.listener, False]))
         th.setDaemon(True)
         th.start()
@@ -475,16 +501,19 @@ class TootManager:
 
 def main():
   # フラグ (HTLと通知は強制)
-  FLAG_USE_LTL = True # ローカルTL (fedibirdのようにLTLがない場合は無意味)
-  FLAG_USE_FTL = False # 連合TL (大量に流れるので片っ端からdomain_blockしてからでないと実用的ではないと思う)
-  FLAG_USE_CLOCK = True # 時報を喋るか
+  flags = {
+    'FLAG_USE_LTL': True, # ローカルTL (fedibirdのようにLTLがない場合は無意味)
+    'FLAG_USE_FTL': False, # 連合TL (大量に流れるので片っ端からdomain_blockしてからでないと実用的ではないと思う)
+    'FLAG_TOOT_SPOILER_TEXT': True, # CW (たたむ) の内容を喋るか
+    'FLAG_SPEAK_ALL_ACCOUNT': False, # 全員喋るか
+  }
+  FLAG_USE_CLOCK = True, # 時報を喋るか
   CLOCK_INTERVAL_MINUTES = 15 # 何分ごとに時報を喋るか
-  FLAG_TOOT_SPOILER_TEXT = True # CW (たたむ) の内容を喋るか
 
   account_info1 = 'server_nickname_1'
   account_info2 = 'server_nickname_2'
-  mastodon1 = TootManager(account_info1, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT)
-  mastodon2 = TootManager(account_info2, FLAG_USE_LTL, FLAG_USE_FTL, FLAG_TOOT_SPOILER_TEXT)
+  mastodon1 = TootManager(account_info1, flags)
+  mastodon2 = TootManager(account_info2, flags)
 
 
   JST = tz.gettz('Asia/Tokyo')
@@ -518,6 +547,7 @@ def main():
     resizable=True, element_padding=(0, 0))
 
   limit_time = datetime.datetime.now(JST)
+
   while True:
     event, _ = window.read(timeout=16) # msec
     if event == sg.WIN_CLOSED or event == 'Quit':
@@ -581,7 +611,8 @@ def main():
       window['-TOOT-'].update(data_local.toot_text)
       window['-AVATAR-'].update(data=data_local.img_avatar)
       window['-BOOSTED_AVATAR-'].update(data=data_local.img_boosted_avatar)
-      
+
+     
   window.close()
 
 if __name__ == '__main__':
