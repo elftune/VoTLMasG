@@ -12,6 +12,7 @@ import re, os, json
 from time import sleep
 import threading, queue, glob, copy
 from dateutil import tz
+import html
 
 from PIL import Image, ImageTk
 import cv2, PySimpleGUI as sg, demoji
@@ -144,6 +145,7 @@ class TootManager:
           # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
           bFlagProc = True
           s = toot['content']
+          s = html.unescape(s) # 例えば I&apos;m を I'm に戻す 
           print("\n(1:" +  str(a_id) + ")Dbg: Str(Org):  " + s)
           s = s.replace('\n', '')
           s = s.replace('<br />', '')
@@ -160,7 +162,7 @@ class TootManager:
           print("(2:" +  str(a_id) + ")Dbg: Str(調整): " + s)
           if TootManager.tooted_str.get(s) == None:
             print("  (3A)Dbg: tooted_str.get(s) == None, len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
-            if len(TootManager.tooted_str) > 10000:
+            if len(TootManager.tooted_str) > 100:
               print("    (4)Dbg: tooted_str == {}")
               TootManager.tooted_str = {}
             TootManager.tooted_str[s] = 1
@@ -172,7 +174,7 @@ class TootManager:
           # Toot IDで判別
           if TootManager.tooted_id.get(toot['id']) == None:
             print("  (5A)Dbg: tooted_id.get(toot['id']) == None")
-            if len(TootManager.tooted_id) > 10000:
+            if len(TootManager.tooted_id) > 1000:
               print("    (6)Dbg: tooted_id == {}")
               TootManager.tooted_id = {}
             TootManager.tooted_id[toot['id']] = 1
@@ -194,7 +196,7 @@ class TootManager:
               (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
               if nSpeaker != '':
                 if bSpeakFlag == True and TootManager.useVV.checkVV() == True:
-                  TootManager.useVV.speak_toot(nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0)
+                  TootManager.useVV.speak_toot(nSpeaker, account_id, html.unescape(toot_text), toot_account_full_id, html.unescape(toot_text0))
                   sleep(0.3)
                 else:
                   sleep(2.0) # 喋らない時は待ち時間を伸ばす
@@ -398,6 +400,7 @@ class TootManager:
       # toot_text --> 喋る内容
       # 改行は明確に区切らないと不自然になるので 。 にする
       toot_text = toots['content']
+      toot_text = html.unescape(toot_text)
 
       if toots['spoiler_text'] != '':
         toot_text = toots['spoiler_text'] + " 。[たたむ]。 " + toot_text if self.FLAG_TOOT_SPOILER_TEXT == True else ""
