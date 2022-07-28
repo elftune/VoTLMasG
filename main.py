@@ -1,3 +1,6 @@
+if __name__ == '__main__':
+  print("しばらくお待ちください。\n全ての「初期化完了」が終わっても何もウィンドウが表示されない場合はCtrl-Cで終了して再度実行してください。")
+
 import base64
 from io import BytesIO
 from pkgutil import get_data
@@ -134,77 +137,81 @@ class TootManager:
           if s[1:].find('@') < 0:
             s = s + '@' + toot['server'][8:]
             
-          # しゃべる対象の人か？(喋らなくても表示は更新するので、ここで終わりでは無い)
-          bSpeakFlag = True
-          if TootManager.toot_account.get(s) == None:
-            bSpeakFlag = False
-          
-          if self.FLAG_SPEAK_ALL_ACCOUNT == True:
-            bSpeakFlag = True
-
-          # すでに同じセリフをしゃべっていないか
-          # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
+          # 同一サーバーのLTL/HTLで、同じTootは2回目以降は除外　Toot IDで判別
           bFlagProc = True
-          s = toot['content']
-          s = html.unescape(s) # 例えば I&apos;m を I'm に戻す 
-          print("\n(1:" +  str(a_id) + ")Dbg: Str(Org):  " + s)
-          s = s.replace('\n', '')
-          s = s.replace('<br />', '')
-          s = s.replace('<br>', '')
-          s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
-
-          # ここまでの段階では "RT @"がないので無意味だった
-          # "RT @xxxx 本文" の場合、"本文" までカットする (複数RT先指定がある場合には無意味だが多くは単一指定だろう...)
-          idx = s.find('RT @')
-          if idx >= 0:
-            s0 = s[idx+4:]
-            s = s[0:idx] + s0[s0.find(' ')+1:]
-
-          print("(2:" +  str(a_id) + ")Dbg: Str(調整): " + s)
-          if TootManager.tooted_str.get(s) == None:
-            print("  (3A)Dbg: tooted_str.get(s) == None, len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
-            if len(TootManager.tooted_str) > 100:
-              print("    (4)Dbg: tooted_str == {}")
-              TootManager.tooted_str = {}
-            TootManager.tooted_str[s] = 1
-          else:
-            print("  (3B)Dbg: tooted_str.get(s) != None: " + str(TootManager.tooted_str[s]) + ", len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
-            bFlagProc = False
-
-          #　同一サーバー内限定だが、同じTootを除去する(LTLとHTLで両方拾ってしまうので)            
-          # Toot IDで判別
+          print("\nServer: " + toot['server'])
           if TootManager.tooted_id.get(toot['id']) == None:
-            print("  (5A)Dbg: tooted_id.get(toot['id']) == None")
+            # 今回が初検出の場合
+            print("(0A)Dbg: tooted_id.get(toot['id']) == None ... このTootは初検出(同一サーバー内)")
             if len(TootManager.tooted_id) > 1000:
-              print("    (6)Dbg: tooted_id == {}")
+              print("  (0B)Dbg: tooted_id == {}")
               TootManager.tooted_id = {}
             TootManager.tooted_id[toot['id']] = 1
           else:
-            print("  (5B)Dbg: tooted_id.get(toot['id']) == None: " + str(TootManager.tooted_id[toot['id']]) + ", len(TootManager.tooted_id)=" + str(len(TootManager.tooted_id)))
-            bFlagProc = False
-
-          if bFlagProc == True:
-            if bSpeakFlag == True:             
-              print("(9A) bFlagProc == True, 表示更新＋スピーク")
-            else:
-              print("(9B) bFlagProc == True, 表示更新のみ")
-
-            #ここに来たら、表示更新していない・しゃべっていない ---> 今から更新する・しゃべる
-            result = self.do_1toot(q2, toot)
-            self.update_toot(toot, result)  # 表示更新
-
-            if not q2.empty():
-              (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
-              if nSpeaker != '':
-                if bSpeakFlag == True and TootManager.useVV.checkVV() == True:
-                  TootManager.useVV.speak_toot(nSpeaker, account_id, html.unescape(toot_text), toot_account_full_id, html.unescape(toot_text0))
-                  sleep(0.3)
-                else:
-                  sleep(2.0) # 喋らない時は待ち時間を伸ばす
+            # すでにToot済みの場合
+            print("(0C)Dbg: tooted_id.get(toot['id']) == None: " + str(TootManager.tooted_id[toot['id']]) + ", len(TootManager.tooted_id)=" + str(len(TootManager.tooted_id)) + " ... このTootはToot済み(同一サーバー内)")
+            bFlagProc = False # この場合、もう処理する必要がない（表示も発声も）
+          
+          # 初Tootの場合 or 別サーバーでの重複Tootの場合、の二択か
+          if bFlagProc != False:
+            # しゃべる対象の人か？(喋らなくても表示は更新するので、ここで終わりでは無い)
+            bSpeakFlag = True
+            if TootManager.toot_account.get(s) == None:
+              bSpeakFlag = False
             
-          else:
-            print("(9B) bFlagProc == False, ↑ 表示更新・スピーク　省略")
-            # del TootManager.tooted_str[s]
+            if self.FLAG_SPEAK_ALL_ACCOUNT == True:
+              bSpeakFlag = True
+
+            # すでに同じセリフをしゃべっていないか
+            # URL関連や改行関連など、サーバーごとに微妙に異なることがあるのでこれで完璧！ではない
+            s = toot['content']
+            s = html.unescape(s) # 例えば I&apos;m を I'm に戻す 
+            print("  (1:" +  str(a_id) + ")Dbg: Str(Org):  " + s)
+            s = s.replace('\n', '')
+            s = s.replace('<br />', '')
+            s = s.replace('<br>', '')
+            s = TootManager.conv.sub("", s) # <x>xxxxx</x>  を全て抽出
+
+            # ここまでの段階では "RT @"がないので無意味だった
+            # "RT @xxxx 本文" の場合、"本文" までカットする (複数RT先指定がある場合には無意味だが多くは単一指定だろう...)
+            idx = s.find('RT @')
+            if idx >= 0:
+              s0 = s[idx+4:]
+              s = s[0:idx] + s0[s0.find(' ')+1:]
+            
+            print("  (2:" +  str(a_id) + ")Dbg: Str(調整): " + s)
+            if TootManager.tooted_str.get(s) == None:
+              print("    (3A)Dbg: tooted_str.get(s) == None, len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
+              if len(TootManager.tooted_str) > 32:
+                print("      (4)Dbg: tooted_str == {}")
+                TootManager.tooted_str = {}
+              TootManager.tooted_str[s] = 1
+            else:
+              print("    (3B)Dbg: tooted_str.get(s) != None: " + str(TootManager.tooted_str[s]) + ", len(TootManager.tooted_str)=" + str(len(TootManager.tooted_str)))
+              bFlagProc = False
+
+            if bFlagProc == True:
+              if bSpeakFlag == True:             
+                print("  (9A) bFlagProc == True, 表示更新＋スピーク")
+              else:
+                print("  (9B) bFlagProc == True, 表示更新のみ")
+
+              #ここに来たら、表示更新していない・しゃべっていない ---> 今から更新する・しゃべる
+              result = self.do_1toot(q2, toot)
+              self.update_toot(toot, result)  # 表示更新
+
+              if not q2.empty():
+                (nSpeaker, account_id, toot_text, toot_account_full_id, toot_text0) = q2.get()
+                if nSpeaker != '':
+                  if bSpeakFlag == True and TootManager.useVV.checkVV() == True:
+                    TootManager.useVV.speak_toot(nSpeaker, account_id, html.unescape(toot_text), toot_account_full_id, html.unescape(toot_text0))
+                    sleep(0.3)
+                  else:
+                    sleep(2.0) # 喋らない時は待ち時間を伸ばす
+              
+            else:
+              print("(9B) bFlagProc == False, ↑ 表示更新・スピーク　省略")
+              # del TootManager.tooted_str[s]
             
       sleep(0.1)
 
@@ -616,7 +623,7 @@ def main():
       window['-AVATAR-'].update(data=data_local.img_avatar)
       window['-BOOSTED_AVATAR-'].update(data=data_local.img_boosted_avatar)
 
-     
+
   window.close()
 
 if __name__ == '__main__':
