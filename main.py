@@ -287,16 +287,13 @@ class TootManager:
           sg.popup(s)
           exit()
 
-
+    # 保存せず毎回作成するようにした(jsonを変更してもココを手動で削除しないといけなくて面倒だったので)
     try:
-      if os.path.isfile(cid_file) == False:
-        MastodonEx.create_app(self.appname, api_base_url = url, to_file = cid_file )
-        mastodon = MastodonEx( client_id = cid_file, api_base_url = url, )
-        mastodon.log_in( username = email, password = password, to_file = token_file )
-      else:
-        mastodon = MastodonEx( client_id=cid_file, access_token=token_file, api_base_url=url )
+      MastodonEx.create_app(self.appname, api_base_url = url, to_file = cid_file )
+      mastodon = MastodonEx( client_id = cid_file, api_base_url = url, )
+      mastodon.log_in( username = email, password = password, to_file = token_file )
     except:
-      s = f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません。READMEを確認ください。"
+      s = f"ERROR: {FILE_SETTINGS_1} の内容が適切ではありません(たぶん)。READMEを確認ください。"
       print(s)
       sg.popup(s)
       exit()
